@@ -12,7 +12,7 @@ Turn your GitHub Copilot subscription into an AI API server. Use **any model** a
 - 🌊 **SSE Streaming** — Real-time streaming responses for both formats
 - 📋 **Model Discovery** — Auto-fetch available models from Copilot
 - ⚡ **Zero Config** — `pip install` → `auth login` → `serve` → done
-- 🌐 **Remote Deploy** — Serve on `0.0.0.0` with API key protection, deploy behind Nginx/Caddy with HTTPS
+- 🌐 **Remote Deploy** — Serve on `0.0.0.0` with API key protection, deploy behind Caddy for auto-HTTPS
 
 ## 🚀 Quick Start
 
@@ -251,12 +251,12 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 The `deploy/` directory includes ready-to-use templates:
-- `copilotx.service` — systemd service unit (template)
-- `copilotx-azureuser.service` — systemd service for azureuser (example)
+- `copilotx.service` — systemd service unit (generic)
+- `copilotx-azureuser.service` — systemd service unit (Azure VM with virtualenv)
 - `nginx-copilotx.conf` — Nginx reverse proxy with SSL, rate limiting, and SSE support
-- `nginx-copilotx-http.conf` — Temporary HTTP-only config for initial SSL setup
+- `nginx-copilotx-http.conf` — Temporary HTTP-only config for initial Let's Encrypt setup
 - `Caddyfile` — Alternative Caddy config (simpler setup with auto-HTTPS)
-- `.env.example` — Environment file template
+- `.env.example` — Environment variables template
 
 ### Security Model
 
