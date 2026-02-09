@@ -1,0 +1,21 @@
+[Unit]
+Description=CopilotX — Local GitHub Copilot API Proxy
+After=network.target
+
+[Service]
+Type=simple
+User=copilotx
+Group=copilotx
+WorkingDirectory=/home/copilotx
+EnvironmentFile=/home/copilotx/.env
+ExecStart=/home/copilotx/.local/bin/copilotx serve --host 0.0.0.0 --port 24680
+Restart=always
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/copilotx/.copilotx
+
+[Install]
+WantedBy=multi-user.target

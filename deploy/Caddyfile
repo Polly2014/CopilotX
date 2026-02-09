@@ -1,0 +1,14 @@
+# CopilotX Reverse Proxy — Caddy auto-HTTPS
+# Usage: sudo caddy run --config /path/to/Caddyfile
+
+api.polly.wang {
+    reverse_proxy localhost:24680
+
+    # Optional: rate limiting (requires caddy-ratelimit plugin)
+    # rate_limit {remote.host} 60r/m
+
+    log {
+        output file /var/log/caddy/copilotx.log
+        format json
+    }
+}

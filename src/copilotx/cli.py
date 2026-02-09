@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Optional
 
 import typer
@@ -228,6 +229,10 @@ def serve(
     # Write server.json for port discovery
     _write_server_info(host, port)
 
+    # Detect mode
+    is_remote = host != "127.0.0.1"
+    has_api_key = bool(os.environ.get("COPILOTX_API_KEY", ""))
+
     # Banner
     console.print()
     console.print(f"[bold cyan]🚀 CopilotX v{__version__}[/]")
@@ -235,6 +240,19 @@ def serve(
         f"[green]✅ Copilot Token valid "
         f"({tm.expires_in_seconds // 60}m remaining, auto-refresh)[/]"
     )
+
+    if is_remote:
+        if has_api_key:
+            console.print("[green]🔐 API Key protection: ON (localhost exempt)[/]")
+        else:
+            console.print(
+                "[bold yellow]⚠️  WARNING: Remote mode without API key![/]\n"
+                "[yellow]   Anyone can access your Copilot subscription.[/]\n"
+                "[yellow]   Set COPILOTX_API_KEY env var to enable protection.[/]"
+            )
+    else:
+        console.print("[dim]🏠 Local mode (localhost only)[/]")
+
     console.print(f"[dim]📋 Models: {', '.join(model_names)}[/]")
     console.print(f"[dim]📁 Port info: {SERVER_FILE}[/]")
     console.print()

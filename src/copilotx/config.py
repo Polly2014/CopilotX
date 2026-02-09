@@ -1,5 +1,6 @@
 """Global configuration constants."""
 
+import os
 from pathlib import Path
 
 # ── Copilot OAuth ──────────────────────────────────────────────────
@@ -28,6 +29,15 @@ COPILOT_HEADERS = {
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 24680
 REQUEST_TIMEOUT = 120  # seconds
+
+# ── Security ───────────────────────────────────────────────────────
+# Set COPILOTX_API_KEY env var to enable API key protection.
+# When set: localhost is exempt, remote requests require Bearer token.
+# When unset: all requests are allowed (backward compatible).
+COPILOTX_API_KEY = os.environ.get("COPILOTX_API_KEY", "")
+LOCALHOST_ADDRS = {"127.0.0.1", "::1", "localhost"}
+# Paths that are always accessible without API key (health checks, etc.)
+PUBLIC_PATHS = {"/health", "/"}
 
 # ── Token ──────────────────────────────────────────────────────────
 TOKEN_REFRESH_BUFFER = 60  # refresh token 60s before expiry

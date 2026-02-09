@@ -1,8 +1,8 @@
 # 🚀 CopilotX
 
-Local GitHub Copilot API proxy — use GPT-4o, Claude, Gemini and more via OpenAI/Anthropic compatible APIs.
+Local & Remote GitHub Copilot API proxy — use GPT-4o, Claude, Gemini and more via OpenAI/Anthropic compatible APIs.
 
-Turn your GitHub Copilot subscription into a local AI API server. Use **any model** available through Copilot with **any tool** that supports OpenAI or Anthropic SDKs.
+Turn your GitHub Copilot subscription into an AI API server. Use **any model** available through Copilot with **any tool** that supports OpenAI or Anthropic SDKs — locally or on a remote VM.
 
 ## ✨ Features
 
@@ -12,6 +12,7 @@ Turn your GitHub Copilot subscription into a local AI API server. Use **any mode
 - 🌊 **SSE Streaming** — Real-time streaming responses for both formats
 - 📋 **Model Discovery** — Auto-fetch available models from Copilot
 - ⚡ **Zero Config** — `pip install` → `auth login` → `serve` → done
+- 🌐 **Remote Deploy** — Serve on `0.0.0.0` with API key protection, deploy behind Caddy for auto-HTTPS
 
 ## 🚀 Quick Start
 
@@ -44,8 +45,9 @@ copilotx serve
 
 Output:
 ```
-🚀 CopilotX v1.0.0
+🚀 CopilotX v2.0.0
 ✅ Copilot Token valid (28m remaining, auto-refresh)
+🏠 Local mode (localhost only)
 📋 Models: gpt-4o, gpt-4o-mini, o3-mini, claude-sonnet-4, gemini-2.0-flash
 
 🔗 OpenAI API:    http://127.0.0.1:24680/v1/chat/completions
@@ -136,6 +138,7 @@ copilotx auth logout             # Clear credentials
 
 copilotx models                  # List available models
 copilotx serve                   # Start server (default: 127.0.0.1:24680)
+copilotx serve --host 0.0.0.0   # Remote mode (bind all interfaces)
 copilotx serve --port 9090       # Custom port (strict — fails if in use)
 copilotx --version               # Show version
 ```
@@ -192,6 +195,80 @@ curl http://localhost:$($info.port)/health
 ```
 
 The file is automatically cleaned up when the server stops.
+
+## 🌐 Remote Deployment
+
+Deploy CopilotX on a cloud VM to access your Copilot models from anywhere.
+
+### Quick Setup (Azure VM / any Linux server)
+
+```bash
+# 1. Install
+pip install copilotx
+
+# 2. Authenticate
+copilotx auth login
+
+# 3. Set API key for remote protection
+export COPILOTX_API_KEY=$(openssl rand -hex 32)
+echo "Save this key: $COPILOTX_API_KEY"
+
+# 4. Start in remote mode
+copilotx serve --host 0.0.0.0
+```
+
+### Production Setup with Caddy + systemd
+
+```bash
+# Copy deploy templates
+sudo cp deploy/copilotx.service /etc/systemd/system/
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+
+# Configure environment
+cp deploy/.env.example ~/.env
+# Edit ~/.env — set your COPILOTX_API_KEY
+
+# Start services
+sudo systemctl enable --now copilotx
+sudo systemctl reload caddy
+```
+
+### Security Model
+
+| Mode | Host | API Key | Behavior |
+|------|------|---------|----------|
+| **Local** | `127.0.0.1` (default) | Not needed | Fully open, localhost only |
+| **Remote (protected)** | `0.0.0.0` | `COPILOTX_API_KEY` set | Localhost exempt, remote needs Bearer token |
+| **Remote (open)** | `0.0.0.0` | Not set | ⚠️ Warning shown, fully open |
+
+**Accessing from remote:**
+
+```bash
+# Use Bearer token
+curl https://api.polly.wang/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# Or x-api-key header
+curl https://api.polly.wang/v1/models \
+  -H "x-api-key: YOUR_API_KEY"
+```
+
+**With OpenAI SDK:**
+
+```python
+client = OpenAI(
+    base_url="https://api.polly.wang/v1",
+    api_key="YOUR_COPILOTX_API_KEY",
+)
+```
+
+## 📋 Version Roadmap
+
+| Version | Codename | Features |
+|---------|----------|----------|
+| v1.0.0 | Local | OAuth, dual API, streaming, model discovery |
+| **v2.0.0** | **Remote** | **API key auth, remote deploy, Caddy/systemd templates** |
+| v3.0.0 | Multi-User | Token pool, user database, OpenRouter mode |
 
 ## ⚠️ Disclaimer
 
