@@ -1,6 +1,6 @@
 [project]
 name = "copilotx"
-version = "0.1.1"
+version = "1.0.0"
 description = "Local GitHub Copilot API proxy — use GPT-4o, Claude, Gemini via OpenAI/Anthropic compatible APIs"
 readme = "README.md"
 license = { text = "MIT" }
@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 authors = [{ name = "Polly", email = "polly@polly.wang" }]
 keywords = ["copilot", "llm", "proxy", "openai", "anthropic"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",

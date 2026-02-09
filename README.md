@@ -44,7 +44,7 @@ copilotx serve
 
 Output:
 ```
-🚀 CopilotX v0.1.0
+🚀 CopilotX v1.0.0
 ✅ Copilot Token valid (28m remaining, auto-refresh)
 📋 Models: gpt-4o, gpt-4o-mini, o3-mini, claude-sonnet-4, gemini-2.0-flash
 
