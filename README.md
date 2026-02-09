@@ -217,21 +217,43 @@ echo "Save this key: $COPILOTX_API_KEY"
 copilotx serve --host 0.0.0.0
 ```
 
-### Production Setup with Caddy + systemd
+### Production Setup with Nginx + systemd
+
+For production deployments with HTTPS, we recommend using Nginx as the reverse proxy.
+
+**1. Install and configure systemd service:**
 
 ```bash
-# Copy deploy templates
+# Copy and customize the systemd service template
 sudo cp deploy/copilotx.service /etc/systemd/system/
-sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
 
-# Configure environment
-cp deploy/.env.example ~/.env
-# Edit ~/.env — set your COPILOTX_API_KEY
+# Create environment file with your API key
+mkdir -p ~/.copilotx
+echo "COPILOTX_API_KEY=$(openssl rand -hex 32)" > ~/.copilotx/.env
 
-# Start services
+# Enable and start service
+sudo systemctl daemon-reload
 sudo systemctl enable --now copilotx
-sudo systemctl reload caddy
 ```
+
+**2. Configure Nginx reverse proxy:**
+
+```bash
+# Copy the Nginx config template
+sudo cp deploy/nginx-copilotx.conf /etc/nginx/sites-available/copilotx
+sudo ln -s /etc/nginx/sites-available/copilotx /etc/nginx/sites-enabled/
+
+# Get SSL certificate with Let's Encrypt
+sudo certbot --nginx -d your-domain.com
+
+# Reload Nginx
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+The `deploy/` directory includes ready-to-use templates:
+- `copilotx.service` — systemd service unit
+- `nginx-copilotx.conf` — Nginx reverse proxy with SSL, rate limiting, and SSE support
+- `Caddyfile` — Alternative Caddy config (simpler setup with auto-HTTPS)
 
 ### Security Model
 
@@ -245,11 +267,11 @@ sudo systemctl reload caddy
 
 ```bash
 # Use Bearer token
-curl https://api.polly.wang/v1/models \
+curl https://your-domain.com/v1/models \
   -H "Authorization: Bearer YOUR_API_KEY"
 
 # Or x-api-key header
-curl https://api.polly.wang/v1/models \
+curl https://your-domain.com/v1/models \
   -H "x-api-key: YOUR_API_KEY"
 ```
 
@@ -257,7 +279,7 @@ curl https://api.polly.wang/v1/models \
 
 ```python
 client = OpenAI(
-    base_url="https://api.polly.wang/v1",
+    base_url="https://your-domain.com/v1",
     api_key="YOUR_COPILOTX_API_KEY",
 )
 ```
@@ -267,7 +289,7 @@ client = OpenAI(
 | Version | Codename | Features |
 |---------|----------|----------|
 | v1.0.0 | Local | OAuth, dual API, streaming, model discovery |
-| **v2.0.0** | **Remote** | **API key auth, remote deploy, Caddy/systemd templates** |
+| **v2.0.0** | **Remote** | **API key auth, remote deploy, Nginx/Caddy + systemd templates** |
 | v3.0.0 | Multi-User | Token pool, user database, OpenRouter mode |
 
 ## ⚠️ Disclaimer
