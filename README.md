@@ -48,9 +48,9 @@ Output:
 ✅ Copilot Token valid (28m remaining, auto-refresh)
 📋 Models: gpt-4o, gpt-4o-mini, o3-mini, claude-sonnet-4, gemini-2.0-flash
 
-🔗 OpenAI API:    http://127.0.0.1:8080/v1/chat/completions
-🔗 Anthropic API: http://127.0.0.1:8080/v1/messages
-🔗 Models:        http://127.0.0.1:8080/v1/models
+🔗 OpenAI API:    http://127.0.0.1:24680/v1/chat/completions
+🔗 Anthropic API: http://127.0.0.1:24680/v1/messages
+🔗 Models:        http://127.0.0.1:24680/v1/models
 
 Press Ctrl+C to stop
 ```
@@ -62,7 +62,7 @@ Press Ctrl+C to stop
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="copilotx")
+client = OpenAI(base_url="http://localhost:24680/v1", api_key="copilotx")
 
 response = client.chat.completions.create(
     model="gpt-4o",
@@ -79,7 +79,7 @@ for chunk in response:
 ```python
 from anthropic import Anthropic
 
-client = Anthropic(base_url="http://localhost:8080", api_key="copilotx")
+client = Anthropic(base_url="http://localhost:24680", api_key="copilotx")
 
 message = client.messages.create(
     model="claude-sonnet-4",
@@ -93,7 +93,7 @@ print(message.content[0].text)
 
 ```bash
 # Set environment variables
-export ANTHROPIC_BASE_URL=http://localhost:8080
+export ANTHROPIC_BASE_URL=http://localhost:24680
 export ANTHROPIC_API_KEY=copilotx
 claude
 ```
@@ -101,7 +101,7 @@ claude
 **Codex:**
 
 ```bash
-export OPENAI_BASE_URL=http://localhost:8080/v1
+export OPENAI_BASE_URL=http://localhost:24680/v1
 export OPENAI_API_KEY=copilotx
 codex
 ```
@@ -109,7 +109,7 @@ codex
 **cURL:**
 
 ```bash
-curl http://localhost:8080/v1/chat/completions \
+curl http://localhost:24680/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o",
@@ -135,8 +135,8 @@ copilotx auth status             # Show auth status
 copilotx auth logout             # Clear credentials
 
 copilotx models                  # List available models
-copilotx serve                   # Start server (default: 127.0.0.1:8080)
-copilotx serve --port 9090       # Custom port
+copilotx serve                   # Start server (default: 127.0.0.1:24680)
+copilotx serve --port 9090       # Custom port (strict — fails if in use)
 copilotx --version               # Show version
 ```
 
@@ -148,7 +148,7 @@ Your Tool (Claude Code / Codex / Python script)
     │  OpenAI or Anthropic format
     ▼
 ┌──────────────────────────────┐
-│  CopilotX (localhost:8080)   │
+│  CopilotX (localhost:24680)  │
 │                              │
 │  • Anthropic → OpenAI        │
 │    format translation        │
@@ -164,6 +164,34 @@ Your Tool (Claude Code / Codex / Python script)
 CopilotX uses your GitHub Copilot subscription to access models. The Copilot backend
 natively speaks OpenAI format, so OpenAI requests are **direct passthrough**. Anthropic
 requests are translated on-the-fly.
+
+## 🔍 Port Discovery
+
+When CopilotX starts, it writes `~/.copilotx/server.json`:
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 24680,
+  "pid": 12345,
+  "started_at": "2026-02-09T12:00:00+00:00",
+  "base_url": "http://127.0.0.1:24680"
+}
+```
+
+Other scripts can read this to discover the actual port:
+
+```bash
+# Bash/Zsh
+PORT=$(python -c "import json; print(json.load(open('$HOME/.copilotx/server.json'))['port'])")
+curl http://localhost:$PORT/health
+
+# PowerShell
+$info = Get-Content "$HOME\.copilotx\server.json" | ConvertFrom-Json
+curl http://localhost:$($info.port)/health
+```
+
+The file is automatically cleaned up when the server stops.
 
 ## ⚠️ Disclaimer
 

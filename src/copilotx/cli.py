@@ -161,12 +161,18 @@ def list_models() -> None:
 @app.command("serve")
 def serve(
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind address"),
-    port: int = typer.Option(8080, "--port", "-p", help="Bind port"),
+    port: int = typer.Option(24680, "--port", "-p", help="Bind port (default: 24680)"),
+    port_explicit: bool = typer.Option(False, hidden=True),
 ) -> None:
     """Start the local API proxy server."""
+    import json
+    import os
+    import signal
     import socket
+    import sys
 
     from copilotx.auth.token import TokenError, TokenManager
+    from copilotx.config import COPILOTX_DIR, DEFAULT_PORT, SERVER_FILE
     from copilotx.proxy.client import CopilotClient
 
     tm = TokenManager()
@@ -181,13 +187,30 @@ def serve(
         console.print(f"[bold red]❌ {e}[/]")
         raise typer.Exit(1)
 
-    # Find available port
-    actual_port = _find_available_port(host, port)
-    if actual_port != port:
-        console.print(
-            f"[yellow]⚠️  Port {port} is in use, using {actual_port} instead[/]"
-        )
-    port = actual_port
+    # Detect if --port was explicitly passed via sys.argv
+    _port_was_explicit = any(
+        arg in sys.argv for arg in ("--port", "-p")
+    )
+
+    if _port_was_explicit:
+        # Strict mode: user chose this port, fail if unavailable
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind((host, port))
+        except OSError:
+            console.print(
+                f"[bold red]❌ Port {port} is already in use.[/]\n"
+                f"[dim]   Free it or omit --port to auto-select.[/]"
+            )
+            raise typer.Exit(1)
+    else:
+        # Auto mode: scan for available port
+        actual_port = _find_available_port(host, port)
+        if actual_port != port:
+            console.print(
+                f"[yellow]⚠️  Port {port} is in use, using {actual_port} instead[/]"
+            )
+        port = actual_port
 
     # Fetch models for display
     try:
@@ -202,6 +225,9 @@ def serve(
     except Exception:
         model_names = ["(could not fetch)"]
 
+    # Write server.json for port discovery
+    _write_server_info(host, port)
+
     # Banner
     console.print()
     console.print(f"[bold cyan]🚀 CopilotX v{__version__}[/]")
@@ -210,6 +236,7 @@ def serve(
         f"({tm.expires_in_seconds // 60}m remaining, auto-refresh)[/]"
     )
     console.print(f"[dim]📋 Models: {', '.join(model_names)}[/]")
+    console.print(f"[dim]📁 Port info: {SERVER_FILE}[/]")
     console.print()
     console.print(f"[bold]🔗 OpenAI API:[/]    http://{host}:{port}/v1/chat/completions")
     console.print(f"[bold]🔗 Anthropic API:[/] http://{host}:{port}/v1/messages")
@@ -218,13 +245,45 @@ def serve(
     console.print("[dim]Press Ctrl+C to stop[/]")
     console.print()
 
-    # Start server
+    # Start server (cleanup server.json on exit)
     import uvicorn
 
     from copilotx.server.app import create_app
 
     fastapi_app = create_app(tm)
-    uvicorn.run(fastapi_app, host=host, port=port, log_level="info")
+    try:
+        uvicorn.run(fastapi_app, host=host, port=port, log_level="info")
+    finally:
+        _cleanup_server_info()
+
+
+def _write_server_info(host: str, port: int) -> None:
+    """Write server.json so other tools can discover the running port."""
+    import json
+    import os
+    from datetime import datetime, timezone
+
+    from copilotx.config import COPILOTX_DIR, SERVER_FILE
+
+    COPILOTX_DIR.mkdir(parents=True, exist_ok=True)
+    info = {
+        "host": host,
+        "port": port,
+        "pid": os.getpid(),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "base_url": f"http://{host}:{port}",
+    }
+    SERVER_FILE.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
+
+
+def _cleanup_server_info() -> None:
+    """Remove server.json on shutdown."""
+    from copilotx.config import SERVER_FILE
+
+    try:
+        SERVER_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass  # best-effort
 
 
 def _find_available_port(host: str, preferred: int, max_attempts: int = 20) -> int:

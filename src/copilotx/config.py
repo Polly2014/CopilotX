@@ -26,7 +26,7 @@ COPILOT_HEADERS = {
 
 # ── Server ─────────────────────────────────────────────────────────
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8080
+DEFAULT_PORT = 24680
 REQUEST_TIMEOUT = 120  # seconds
 
 # ── Token ──────────────────────────────────────────────────────────
@@ -40,3 +40,4 @@ MODELS_CACHE_TTL = 300  # 5 minutes
 # ── Storage ────────────────────────────────────────────────────────
 COPILOTX_DIR = Path.home() / ".copilotx"
 AUTH_FILE = COPILOTX_DIR / "auth.json"
+SERVER_FILE = COPILOTX_DIR / "server.json"
