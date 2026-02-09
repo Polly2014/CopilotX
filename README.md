@@ -12,7 +12,7 @@ Turn your GitHub Copilot subscription into an AI API server. Use **any model** a
 - 🌊 **SSE Streaming** — Real-time streaming responses for both formats
 - 📋 **Model Discovery** — Auto-fetch available models from Copilot
 - ⚡ **Zero Config** — `pip install` → `auth login` → `serve` → done
-- 🌐 **Remote Deploy** — Serve on `0.0.0.0` with API key protection, deploy behind Caddy for auto-HTTPS
+- 🌐 **Remote Deploy** — Serve on `0.0.0.0` with API key protection, deploy behind Nginx/Caddy with HTTPS
 
 ## 🚀 Quick Start
 

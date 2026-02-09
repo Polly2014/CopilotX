@@ -1,13 +1,24 @@
+# CopilotX systemd Service Unit
+# 
+# Installation:
+#   1. Edit User/Group and paths below to match your setup
+#   2. sudo cp copilotx.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now copilotx
+#
+# See also: copilotx-azureuser.service for an example with azureuser
+
 [Unit]
-Description=CopilotX — Local GitHub Copilot API Proxy
+Description=CopilotX — GitHub Copilot API Proxy
 After=network.target
 
 [Service]
 Type=simple
+# Change these to your actual user/group
 User=copilotx
 Group=copilotx
 WorkingDirectory=/home/copilotx
-EnvironmentFile=/home/copilotx/.env
+EnvironmentFile=/home/copilotx/.copilotx/.env
 ExecStart=/home/copilotx/.local/bin/copilotx serve --host 0.0.0.0 --port 24680
 Restart=always
 RestartSec=5
