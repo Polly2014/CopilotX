@@ -251,9 +251,12 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 The `deploy/` directory includes ready-to-use templates:
-- `copilotx.service` — systemd service unit
+- `copilotx.service` — systemd service unit (template)
+- `copilotx-azureuser.service` — systemd service for azureuser (example)
 - `nginx-copilotx.conf` — Nginx reverse proxy with SSL, rate limiting, and SSE support
+- `nginx-copilotx-http.conf` — Temporary HTTP-only config for initial SSL setup
 - `Caddyfile` — Alternative Caddy config (simpler setup with auto-HTTPS)
+- `.env.example` — Environment file template
 
 ### Security Model
 
