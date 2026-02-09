@@ -1,0 +1,47 @@
+[project]
+name = "copilotx"
+version = "0.1.0"
+description = "Local GitHub Copilot API proxy — use GPT-4o, Claude, Gemini via OpenAI/Anthropic compatible APIs"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Polly", email = "polly@polly.wang" }]
+keywords = ["copilot", "llm", "proxy", "openai", "anthropic"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "httpx>=0.28.0",
+    "typer[all]>=0.15.0",
+    "rich>=13.9.0",
+    "pydantic>=2.10.0",
+]
+
+[project.scripts]
+copilotx = "copilotx.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/Polly2014/CopilotX"
+Repository = "https://github.com/Polly2014/CopilotX"
+Issues = "https://github.com/Polly2014/CopilotX/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/copilotx"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
