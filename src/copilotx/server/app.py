@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage the CopilotClient lifecycle."""
     tm: TokenManager = app.state.token_manager
     token = await tm.ensure_copilot_token()
-    client = CopilotClient(token)
+    client = CopilotClient(token, api_base_url=tm.api_base_url)
     await client.__aenter__()
     app.state.client = client
     app.state.token_manager = tm
@@ -114,9 +114,11 @@ def create_app(token_manager: TokenManager) -> FastAPI:
     from copilotx.server.routes_anthropic import router as anthropic_router
     from copilotx.server.routes_models import router as models_router
     from copilotx.server.routes_openai import router as openai_router
+    from copilotx.server.routes_responses import router as responses_router
 
     app.include_router(openai_router)
     app.include_router(anthropic_router)
+    app.include_router(responses_router)
     app.include_router(models_router)
 
     return app
@@ -129,4 +131,5 @@ async def get_ready_client(app_state) -> CopilotClient:
     # Ensure token is fresh
     token = await tm.ensure_copilot_token()
     client.update_token(token)
+    client.update_api_base(tm.api_base_url)
     return client

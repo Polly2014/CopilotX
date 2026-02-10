@@ -18,6 +18,7 @@ class Credentials:
     github_token: str  # long-lived GitHub OAuth token
     copilot_token: str = ""  # short-lived Copilot JWT
     expires_at: float = 0.0  # unix timestamp of Copilot JWT expiry
+    api_base_url: str = ""  # dynamic API base from endpoints.api
 
 
 class AuthStorage:
@@ -38,6 +39,7 @@ class AuthStorage:
                 github_token=data["github_token"],
                 copilot_token=data.get("copilot_token", ""),
                 expires_at=data.get("expires_at", 0.0),
+                api_base_url=data.get("api_base_url", ""),
             )
         except (json.JSONDecodeError, KeyError):
             return None

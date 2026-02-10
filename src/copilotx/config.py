@@ -12,17 +12,23 @@ GITHUB_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_COPILOT_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token"
 
 # ── Copilot API ────────────────────────────────────────────────────
-COPILOT_API_BASE = "https://api.githubcopilot.com"
-COPILOT_CHAT_COMPLETIONS = f"{COPILOT_API_BASE}/chat/completions"
-COPILOT_MODELS = f"{COPILOT_API_BASE}/models"
+# The correct API base URL is read dynamically from the token response
+# (endpoints.api field). This fallback is only used if that field is missing.
+COPILOT_API_BASE_FALLBACK = "https://api.githubcopilot.com"
+# Path suffixes (appended to dynamic api_base_url)
+COPILOT_CHAT_COMPLETIONS_PATH = "/chat/completions"
+COPILOT_MODELS_PATH = "/models"
+COPILOT_RESPONSES_PATH = "/responses"
 
-# Headers to mimic the official VS Code Copilot extension
+# Headers to mimic the official VS Code Copilot extension (v0.36.1)
 COPILOT_HEADERS = {
-    "Editor-Version": "vscode/1.104.3",
-    "Editor-Plugin-Version": "copilot-chat/0.26.7",
-    "User-Agent": "GitHubCopilotChat/0.26.7",
+    "Editor-Version": "vscode/1.108.0",
+    "Editor-Plugin-Version": "copilot-chat/0.36.1",
+    "User-Agent": "GitHubCopilotChat/0.36.1",
     "Copilot-Integration-Id": "vscode-chat",
-    "X-GitHub-Api-Version": "2025-04-01",
+    "X-GitHub-Api-Version": "2025-10-01",
+    "openai-intent": "conversation-panel",
+    "x-vscode-user-agent-library-version": "electron-fetch",
 }
 
 # ── Server ─────────────────────────────────────────────────────────

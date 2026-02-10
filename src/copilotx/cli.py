@@ -253,10 +253,19 @@ def serve(
     else:
         console.print("[dim]🏠 Local mode (localhost only)[/]")
 
+    # Show dynamic API base URL
+    api_base = tm.api_base_url
+    if api_base:
+        # Extract hostname for display
+        from urllib.parse import urlparse
+        api_host = urlparse(api_base).hostname or api_base
+        console.print(f"[dim]🎯 API: {api_host} (auto-detected)[/]")
+
     console.print(f"[dim]📋 Models: {', '.join(model_names)}[/]")
     console.print(f"[dim]📁 Port info: {SERVER_FILE}[/]")
     console.print()
-    console.print(f"[bold]🔗 OpenAI API:[/]    http://{host}:{port}/v1/chat/completions")
+    console.print(f"[bold]🔗 OpenAI Chat:[/]   http://{host}:{port}/v1/chat/completions")
+    console.print(f"[bold]🔗 Responses:[/]     http://{host}:{port}/v1/responses")
     console.print(f"[bold]🔗 Anthropic API:[/] http://{host}:{port}/v1/messages")
     console.print(f"[bold]🔗 Models:[/]        http://{host}:{port}/v1/models")
     console.print()

@@ -42,15 +42,49 @@ def anthropic_to_openai_request(body: dict) -> dict:
         if isinstance(content, str):
             messages.append({"role": role, "content": content})
         elif isinstance(content, list):
-            # Anthropic content blocks → flatten text
-            text_parts = []
+            # Anthropic content blocks → OpenAI content parts
+            openai_parts: list[dict[str, Any]] = []
+            has_non_text = False
             for block in content:
                 if isinstance(block, str):
-                    text_parts.append(block)
+                    openai_parts.append({"type": "text", "text": block})
                 elif block.get("type") == "text":
-                    text_parts.append(block["text"])
-                # TODO: handle image blocks, tool_use, tool_result
-            messages.append({"role": role, "content": "\n".join(text_parts)})
+                    openai_parts.append({"type": "text", "text": block["text"]})
+                elif block.get("type") == "image":
+                    # Anthropic image block → OpenAI image_url
+                    source = block.get("source", {})
+                    if source.get("type") == "base64":
+                        media_type = source.get("media_type", "image/png")
+                        data_b64 = source.get("data", "")
+                        openai_parts.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{data_b64}",
+                            },
+                        })
+                        has_non_text = True
+                    elif source.get("type") == "url":
+                        openai_parts.append({
+                            "type": "image_url",
+                            "image_url": {"url": source.get("url", "")},
+                        })
+                        has_non_text = True
+                elif block.get("type") == "tool_use":
+                    # Anthropic tool_use → skip in messages (handled separately)
+                    pass
+                elif block.get("type") == "tool_result":
+                    # Anthropic tool_result → skip in messages (handled separately)
+                    pass
+
+            if has_non_text or len(openai_parts) > 1:
+                # Multi-modal content — use OpenAI array format
+                messages.append({"role": role, "content": openai_parts})
+            else:
+                # Text only — flatten to string
+                text = "\n".join(
+                    p["text"] for p in openai_parts if p.get("type") == "text"
+                )
+                messages.append({"role": role, "content": text})
         else:
             messages.append({"role": role, "content": str(content) if content else ""})
 

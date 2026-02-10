@@ -9,6 +9,7 @@ from rich.console import Console
 
 from copilotx.auth.storage import AuthStorage, Credentials
 from copilotx.config import (
+    COPILOT_API_BASE_FALLBACK,
     COPILOT_HEADERS,
     GITHUB_COPILOT_TOKEN_URL,
     TOKEN_REFRESH_BUFFER,
@@ -70,6 +71,13 @@ class TokenManager:
         remaining = int(self._creds.expires_at - time.time())
         return max(remaining, 0)
 
+    @property
+    def api_base_url(self) -> str:
+        """Return the dynamic API base URL from token response, or fallback."""
+        if self._creds and self._creds.api_base_url:
+            return self._creds.api_base_url.rstrip("/")
+        return COPILOT_API_BASE_FALLBACK
+
     async def ensure_copilot_token(self) -> str:
         """Return a valid Copilot JWT, refreshing if needed."""
         if self._creds is None:
@@ -81,9 +89,13 @@ class TokenManager:
             return self._creds.copilot_token
 
         # Refresh
-        new_token, expires_at = await _fetch_copilot_token(self._creds.github_token)
+        new_token, expires_at, api_base = await _fetch_copilot_token(
+            self._creds.github_token
+        )
         self._creds.copilot_token = new_token
         self._creds.expires_at = expires_at
+        if api_base:
+            self._creds.api_base_url = api_base
         self.storage.save(self._creds)
         return new_token
 
@@ -95,15 +107,16 @@ class TokenManager:
             "authenticated": True,
             "copilot_token_valid": self.copilot_token_valid,
             "expires_in": self.expires_in_seconds,
+            "api_base_url": self.api_base_url,
         }
 
 
 # ── helpers ─────────────────────────────────────────────────────────
 
 
-async def _fetch_copilot_token(github_token: str) -> tuple[str, float]:
+async def _fetch_copilot_token(github_token: str) -> tuple[str, float, str]:
     """Exchange a GitHub OAuth token for a short-lived Copilot JWT.
-    Returns (copilot_jwt, expires_at_unix).
+    Returns (copilot_jwt, expires_at_unix, api_base_url).
     """
     headers = {
         "Authorization": f"token {github_token}",
@@ -128,4 +141,9 @@ async def _fetch_copilot_token(github_token: str) -> tuple[str, float]:
         data = resp.json()
         token = data["token"]
         expires_at = float(data["expires_at"])
-        return token, expires_at
+
+        # Extract dynamic API base URL from endpoints.api
+        endpoints = data.get("endpoints", {})
+        api_base_url = endpoints.get("api", "")
+
+        return token, expires_at, api_base_url

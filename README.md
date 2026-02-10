@@ -8,8 +8,10 @@ Turn your GitHub Copilot subscription into an AI API server. Use **any model** a
 
 - 🔐 **GitHub OAuth** — One-command login via Device Flow, or use existing token
 - 🔄 **Auto Token Refresh** — Copilot JWT refreshed transparently before expiry
-- 🔌 **Dual API Format** — OpenAI `/v1/chat/completions` + Anthropic `/v1/messages`
-- 🌊 **SSE Streaming** — Real-time streaming responses for both formats
+- 🔌 **Triple API Format** — OpenAI `/v1/chat/completions` + `/v1/responses` + Anthropic `/v1/messages`
+- 🌊 **SSE Streaming** — Real-time streaming responses for all formats
+- 👁️ **Vision Support** — Pass images through Responses API (auto-detected)
+- 🎯 **Dynamic API URL** — Auto-discovers correct Copilot API endpoint per account type
 - 📋 **Model Discovery** — Auto-fetch available models from Copilot
 - ⚡ **Zero Config** — `pip install` → `auth login` → `serve` → done
 - 🌐 **Remote Deploy** — Serve on `0.0.0.0` with API key protection, deploy behind Caddy for auto-HTTPS
@@ -45,12 +47,15 @@ copilotx serve
 
 Output:
 ```
-🚀 CopilotX v2.0.0
+🚀 CopilotX v2.1.0
 ✅ Copilot Token valid (28m remaining, auto-refresh)
-🏠 Local mode (localhost only)
-📋 Models: gpt-4o, gpt-4o-mini, o3-mini, claude-sonnet-4, gemini-2.0-flash
+� Local mode (localhost only)
+🎯 API: api.enterprise.githubcopilot.com (auto-detected)
+📋 Models: claude-opus-4.6, gpt-5-mini, gpt-5, gemini-2.5-pro, ...
+📁 Port info: ~/.copilotx/server.json
 
-🔗 OpenAI API:    http://127.0.0.1:24680/v1/chat/completions
+🔗 OpenAI Chat:   http://127.0.0.1:24680/v1/chat/completions
+🔗 Responses:     http://127.0.0.1:24680/v1/responses
 🔗 Anthropic API: http://127.0.0.1:24680/v1/messages
 🔗 Models:        http://127.0.0.1:24680/v1/models
 
@@ -100,12 +105,29 @@ export ANTHROPIC_API_KEY=copilotx
 claude
 ```
 
-**Codex:**
+**Codex CLI (uses Responses API):**
 
 ```bash
 export OPENAI_BASE_URL=http://localhost:24680/v1
 export OPENAI_API_KEY=copilotx
 codex
+```
+
+> Codex CLI uses the `/v1/responses` endpoint natively. CopilotX v2.1.0+ supports this
+> including streaming, vision input, and `apply_patch` tool invocation.
+
+**Python (OpenAI Responses API):**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:24680/v1", api_key="copilotx")
+
+response = client.responses.create(
+    model="gpt-5-mini",
+    input="Explain quicksort in 3 sentences.",
+)
+print(response.output_text)
 ```
 
 **cURL:**
@@ -124,6 +146,7 @@ curl http://localhost:24680/v1/chat/completions \
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | OpenAI-compatible chat completions |
+| `/v1/responses` | POST | OpenAI Responses API (streaming, vision, tools) |
 | `/v1/messages` | POST | Anthropic-compatible messages |
 | `/v1/models` | GET | List available models |
 | `/health` | GET | Server health + token status |
@@ -148,25 +171,30 @@ copilotx --version               # Show version
 ```
 Your Tool (Claude Code / Codex / Python script)
     │
-    │  OpenAI or Anthropic format
+    │  OpenAI Chat / Responses / Anthropic format
     ▼
-┌──────────────────────────────┐
-│  CopilotX (localhost:24680)  │
-│                              │
-│  • Anthropic → OpenAI        │
-│    format translation        │
-│  • Token auto-refresh        │
-│  • SSE stream forwarding     │
-└──────────────┬───────────────┘
-               │  OpenAI format
-               ▼
-  api.githubcopilot.com/chat/completions
-  (GPT-4o, Claude, Gemini, o3-mini, ...)
+┌───────────────────────────────────┐
+│  CopilotX (localhost:24680)       │
+│                                   │
+│  • /v1/chat/completions (pass)    │
+│  • /v1/responses (pass + fix IDs) │
+│  • /v1/messages (Anthropic→OpenAI)│
+│  • Vision auto-detection          │
+│  • apply_patch tool patching      │
+│  • Token auto-refresh             │
+└───────────────┬───────────────────┘
+                │  OpenAI format
+                ▼
+  api.{individual|enterprise}.githubcopilot.com
+  ├── /chat/completions
+  └── /responses
+  (GPT-5, Claude Opus 4.6, Gemini 2.5, ...)
 ```
 
-CopilotX uses your GitHub Copilot subscription to access models. The Copilot backend
-natively speaks OpenAI format, so OpenAI requests are **direct passthrough**. Anthropic
-requests are translated on-the-fly.
+CopilotX uses your GitHub Copilot subscription to access models. The correct API endpoint
+is **auto-detected** from the Copilot token (`endpoints.api` field) — no hardcoded URLs.
+OpenAI requests are **direct passthrough**, Anthropic requests are translated on-the-fly,
+and Responses API streams get **ID synchronization** for consistent event tracking.
 
 ## 🔍 Port Discovery
 
@@ -292,7 +320,8 @@ client = OpenAI(
 | Version | Codename | Features |
 |---------|----------|----------|
 | v1.0.0 | Local | OAuth, dual API, streaming, model discovery |
-| **v2.0.0** | **Remote** | **API key auth, remote deploy, Nginx/Caddy + systemd templates** |
+| v2.0.0 | Remote | API key auth, remote deploy, Nginx/Caddy + systemd templates |
+| **v2.1.0** | **Codex** | **Responses API, vision support, dynamic API URL, stream ID sync** |
 | v3.0.0 | Multi-User | Token pool, user database, OpenRouter mode |
 
 ## ⚠️ Disclaimer
