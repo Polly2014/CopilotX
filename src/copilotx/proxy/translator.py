@@ -15,6 +15,89 @@ from typing import Any, AsyncIterator
 
 
 # ═══════════════════════════════════════════════════════════════════
+#  MODEL MAPPING: Anthropic model names → Copilot model names
+# ═══════════════════════════════════════════════════════════════════
+
+# Anthropic model names (sent by Claude Code) → Copilot-compatible names
+ANTHROPIC_TO_COPILOT_MODEL_MAP = {
+    # Claude Sonnet 4.5 variants
+    "claude-sonnet-4-5-20250929": "claude-sonnet-4.5",
+    "claude-sonnet-4.5-20250929": "claude-sonnet-4.5",
+    "claude-4-5-sonnet": "claude-sonnet-4.5",
+    "claude-4.5-sonnet": "claude-sonnet-4.5",
+    # Claude Sonnet 4 variants
+    "claude-sonnet-4-20250514": "claude-sonnet-4",
+    "claude-sonnet-4": "claude-sonnet-4",
+    "claude-4-sonnet": "claude-sonnet-4",
+    # Claude Opus 4.5 variants
+    "claude-opus-4-5-20250929": "claude-opus-4.5",
+    "claude-opus-4.5-20250929": "claude-opus-4.5",
+    "claude-4-5-opus": "claude-opus-4.5",
+    "claude-4.5-opus": "claude-opus-4.5",
+    # Claude Opus 4.6 variants
+    "claude-opus-4-6": "claude-opus-4.6",
+    "claude-opus-4.6": "claude-opus-4.6",
+    "claude-4-6-opus": "claude-opus-4.6",
+    "claude-4.6-opus": "claude-opus-4.6",
+    # Claude Opus 4 variants
+    "claude-opus-4-20250514": "claude-opus-41",
+    "claude-opus-4": "claude-opus-41",
+    "claude-4-opus": "claude-opus-41",
+    # Claude Haiku 4.5 variants
+    "claude-haiku-4-5": "claude-haiku-4.5",
+    "claude-haiku-4.5": "claude-haiku-4.5",
+    "claude-4-5-haiku": "claude-haiku-4.5",
+    "claude-4.5-haiku": "claude-haiku-4.5",
+    # Claude 3.5 Sonnet (older naming)
+    "claude-3-5-sonnet-20241022": "claude-sonnet-4",
+    "claude-3-5-sonnet-20240620": "claude-sonnet-4",
+    "claude-3-5-sonnet": "claude-sonnet-4",
+    "claude-3.5-sonnet": "claude-sonnet-4",
+    # Claude 3 Opus (older naming)
+    "claude-3-opus-20240229": "claude-opus-41",
+    "claude-3-opus": "claude-opus-41",
+    "claude-3.0-opus": "claude-opus-41",
+    # Claude 3 Haiku
+    "claude-3-haiku-20240307": "claude-haiku-4.5",
+    "claude-3-haiku": "claude-haiku-4.5",
+    "claude-3.0-haiku": "claude-haiku-4.5",
+}
+
+
+def map_anthropic_model_to_copilot(model: str) -> str:
+    """Map Anthropic model names to Copilot-compatible model names.
+    
+    Claude Code sends Anthropic-style model names like 'claude-sonnet-4-5-20250929',
+    but Copilot API expects names like 'claude-sonnet-4.5'.
+    """
+    # Direct mapping
+    if model in ANTHROPIC_TO_COPILOT_MODEL_MAP:
+        return ANTHROPIC_TO_COPILOT_MODEL_MAP[model]
+    
+    # If already a Copilot-compatible name (has dots like 4.5), return as-is
+    if "." in model:
+        return model
+    
+    # Fuzzy matching for unknown variants
+    model_lower = model.lower()
+    if "sonnet" in model_lower:
+        if "4-5" in model_lower or "4.5" in model_lower:
+            return "claude-sonnet-4.5"
+        return "claude-sonnet-4"
+    if "opus" in model_lower:
+        if "4-6" in model_lower or "4.6" in model_lower:
+            return "claude-opus-4.6"
+        if "4-5" in model_lower or "4.5" in model_lower:
+            return "claude-opus-4.5"
+        return "claude-opus-41"
+    if "haiku" in model_lower:
+        return "claude-haiku-4.5"
+    
+    # Fall back to original model name (might be GPT model etc.)
+    return model
+
+
+# ═══════════════════════════════════════════════════════════════════
 #  REQUEST: Anthropic → OpenAI
 # ═══════════════════════════════════════════════════════════════════
 
@@ -88,9 +171,13 @@ def anthropic_to_openai_request(body: dict) -> dict:
         else:
             messages.append({"role": role, "content": str(content) if content else ""})
 
+    # Map Anthropic model name to Copilot-compatible name
+    anthropic_model = body.get("model", "gpt-4o")
+    copilot_model = map_anthropic_model_to_copilot(anthropic_model)
+
     # Build OpenAI request
     openai_req: dict[str, Any] = {
-        "model": body.get("model", "gpt-4o"),
+        "model": copilot_model,
         "messages": messages,
     }
 

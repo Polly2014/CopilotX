@@ -6,6 +6,8 @@ the Copilot backend speaks), and translates responses back.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
@@ -16,6 +18,8 @@ from copilotx.proxy.translator import (
     openai_to_anthropic_response,
 )
 from copilotx.server.app import get_ready_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Anthropic"])
 
@@ -30,6 +34,15 @@ async def messages(request: Request):
     body = await request.json()
     model = body.get("model", "gpt-4o")
     is_stream = body.get("stream", False)
+
+    # Log the incoming request for debugging
+    logger.info(
+        "Anthropic request: model=%s stream=%s max_tokens=%s keys=%s",
+        model,
+        is_stream,
+        body.get("max_tokens"),
+        list(body.keys()),
+    )
 
     # Translate Anthropic request → OpenAI request
     openai_payload = anthropic_to_openai_request(body)
@@ -48,6 +61,7 @@ async def messages(request: Request):
             anthropic_resp = openai_to_anthropic_response(openai_resp, model)
             return JSONResponse(content=anthropic_resp)
     except Exception as e:
+        logger.error("Copilot backend error: %s", e)
         return JSONResponse(
             status_code=502,
             content={
