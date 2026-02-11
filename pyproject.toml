@@ -1,6 +1,6 @@
 [project]
 name = "copilotx"
-version = "2.1.0"
+version = "2.2.0"
 description = "Local GitHub Copilot API proxy — use GPT-4o, Claude, Gemini via OpenAI/Anthropic compatible APIs"
 readme = "README.md"
 license = { text = "MIT" }

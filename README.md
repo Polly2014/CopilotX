@@ -47,7 +47,7 @@ copilotx serve
 
 Output:
 ```
-🚀 CopilotX v2.1.0
+🚀 CopilotX v2.2.0
 ✅ Copilot Token valid (28m remaining, auto-refresh)
 � Local mode (localhost only)
 🎯 API: api.enterprise.githubcopilot.com (auto-detected)
@@ -163,8 +163,30 @@ copilotx models                  # List available models
 copilotx serve                   # Start server (default: 127.0.0.1:24680)
 copilotx serve --host 0.0.0.0   # Remote mode (bind all interfaces)
 copilotx serve --port 9090       # Custom port (strict — fails if in use)
+
+copilotx config claude-code      # Configure for local CopilotX
+copilotx config claude-code -u https://...  # Configure for remote server
+
 copilotx --version               # Show version
 ```
+
+### Client Configuration
+
+The `config` command auto-generates Claude Code configuration with smart defaults:
+
+```bash
+# Local mode — one command, zero prompts
+copilotx config claude-code
+# → Uses localhost:24680, auto-selects best models
+
+# Remote mode — auto-reads API key from ~/.copilotx/.env
+copilotx config claude-code -u https://api.polly.wang
+
+# Custom models (optional)
+copilotx config claude-code -m claude-opus-4.6 -s gpt-5-mini
+```
+
+Creates `~/.claude/settings.json` using `ANTHROPIC_AUTH_TOKEN` (bypasses Claude Code's API key format validation).
 
 ## 🏗️ How It Works
 
@@ -321,7 +343,8 @@ client = OpenAI(
 |---------|----------|----------|
 | v1.0.0 | Local | OAuth, dual API, streaming, model discovery |
 | v2.0.0 | Remote | API key auth, remote deploy, Nginx/Caddy + systemd templates |
-| **v2.1.0** | **Codex** | **Responses API, vision support, dynamic API URL, stream ID sync** |
+| v2.1.0 | Codex | Responses API, vision support, dynamic API URL, stream ID sync |
+| **v2.2.0** | **Config** | **`copilotx config` command for client setup (Claude Code)** |
 | v3.0.0 | Multi-User | Token pool, user database, OpenRouter mode |
 
 ## ⚠️ Disclaimer

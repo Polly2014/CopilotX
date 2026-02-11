@@ -156,6 +156,172 @@ def list_models() -> None:
     console.print(f"\n[dim]Total: {len(models)} models[/]")
 
 
+# ── Config command ──────────────────────────────────────────────────
+
+
+def _select_best_model(model_ids: list[str], preference: list[str]) -> str:
+    """Select best model from list based on preference keywords."""
+    for pref in preference:
+        for m in model_ids:
+            if pref in m.lower():
+                return m
+    return model_ids[0] if model_ids else "gpt-4o"
+
+
+@app.command("config")
+def config_client(
+    target: str = typer.Argument(
+        ...,
+        help="Target client: claude-code",
+    ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        "-u",
+        help="Remote server URL. If omitted, uses localhost:24680",
+    ),
+    api_key: Optional[str] = typer.Option(
+        None,
+        "--api-key",
+        "-k",
+        help="API key for remote server (auto-read from ~/.copilotx/.env)",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Override primary model (default: best Claude Opus)",
+    ),
+    small_model: Optional[str] = typer.Option(
+        None,
+        "--small-model",
+        "-s",
+        help="Override fast model (default: Claude Haiku or GPT mini)",
+    ),
+) -> None:
+    """Configure client integrations (Claude Code, Codex).
+
+    Examples:
+      copilotx config claude-code                    # Local mode
+      copilotx config claude-code -u https://...     # Remote mode
+      copilotx config claude-code -m claude-opus-4.6 # Custom model
+    """
+    import json
+    from pathlib import Path
+
+    from copilotx.auth.token import TokenError, TokenManager
+    from copilotx.proxy.client import CopilotClient
+    from copilotx.config import COPILOTX_DIR
+
+    # Target configs
+    TARGETS = {
+        "claude-code": {
+            "name": "Claude Code",
+            "config_path": Path.home() / ".claude" / "settings.json",
+        },
+    }
+
+    if target not in TARGETS:
+        console.print(f"[bold red]❌ Unknown target: {target}[/]")
+        console.print(f"[dim]   Available: {', '.join(TARGETS.keys())}[/]")
+        raise typer.Exit(1)
+
+    target_info = TARGETS[target]
+    is_remote = base_url is not None
+
+    # Determine base URL
+    if not base_url:
+        base_url = "http://localhost:24680"
+
+    # Check authentication
+    tm = TokenManager()
+    if not tm.is_authenticated:
+        console.print("[bold red]❌ Not authenticated. Run: copilotx auth login[/]")
+        raise typer.Exit(1)
+
+    # Fetch models for validation and auto-selection
+    async def _fetch():
+        token = await tm.ensure_copilot_token()
+        async with CopilotClient(token) as client:
+            return await client.list_models()
+
+    try:
+        models = asyncio.run(_fetch())
+        model_ids = [m["id"] for m in models]
+    except (TokenError, Exception) as e:
+        console.print(f"[yellow]⚠️  Could not fetch models: {e}[/]")
+        model_ids = []
+
+    # Auto-select or validate models
+    if model:
+        primary_model = model
+    else:
+        primary_model = _select_best_model(
+            model_ids, ["opus-4.5", "opus-4.6", "opus", "gpt-5", "gpt-4o"]
+        )
+
+    if small_model:
+        secondary_model = small_model
+    else:
+        secondary_model = _select_best_model(
+            model_ids, ["haiku", "gpt-5-mini", "mini", "sonnet"]
+        )
+
+    # Determine API key
+    if not api_key:
+        if is_remote:
+            # Try to read from .env
+            env_file = COPILOTX_DIR / ".env"
+            if env_file.exists():
+                for line in env_file.read_text().splitlines():
+                    if line.startswith("COPILOTX_API_KEY="):
+                        api_key = line.split("=", 1)[1].strip()
+                        break
+            if not api_key:
+                console.print("[bold red]❌ Remote mode requires --api-key or COPILOTX_API_KEY in ~/.copilotx/.env[/]")
+                raise typer.Exit(1)
+        else:
+            api_key = "copilotx"  # Local mode placeholder
+
+    # Build and write config
+    if target == "claude-code":
+        env_config = {
+            "ANTHROPIC_BASE_URL": base_url,
+            "ANTHROPIC_AUTH_TOKEN": api_key,
+            "ANTHROPIC_MODEL": primary_model,
+            "ANTHROPIC_SMALL_FAST_MODEL": secondary_model,
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        }
+
+        config = {"env": env_config}
+        config_path = target_info["config_path"]
+
+        # Merge with existing config
+        if config_path.exists():
+            try:
+                existing = json.loads(config_path.read_text())
+                if "env" in existing:
+                    existing["env"].update(env_config)
+                else:
+                    existing["env"] = env_config
+                config = existing
+            except Exception:
+                pass
+
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+    # Output
+    mode = "[cyan]remote[/]" if is_remote else "[green]local[/]"
+    console.print(f"[bold green]✅ {target_info['name']} configured![/] ({mode})")
+    console.print()
+    console.print(f"   [dim]Config:[/] {target_info['config_path']}")
+    console.print(f"   [dim]URL:[/]    {base_url}")
+    console.print(f"   [dim]Model:[/]  {primary_model} / {secondary_model}")
+    console.print()
+    console.print("[dim]Restart Claude Code to apply changes.[/]")
+
+
 # ── Serve command ───────────────────────────────────────────────────
 
 
