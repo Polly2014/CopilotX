@@ -453,6 +453,119 @@ def test_multiple_tool_calls():
 
 
 # ═══════════════════════════════════════════════════════════════════
+#  8. Copilot split-choices format (text + tool_calls in separate choices)
+# ═══════════════════════════════════════════════════════════════════
+
+
+def test_copilot_split_choices():
+    """Copilot backend splits text and tool_calls into separate choices."""
+    openai_resp = {
+        "choices": [
+            {
+                "finish_reason": "tool_calls",
+                "message": {
+                    "content": "I'll use the calculator tool to compute 25*17.",
+                    "role": "assistant",
+                },
+            },
+            {
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "arguments": '{"expr":"25*17"}',
+                                "name": "calculator",
+                            },
+                            "id": "tooluse_8bjtwWDo",
+                            "type": "function",
+                        }
+                    ],
+                },
+            },
+        ],
+        "usage": {
+            "completion_tokens": 67,
+            "prompt_tokens": 378,
+            "total_tokens": 445,
+        },
+        "model": "Claude Sonnet 4",
+    }
+
+    result = openai_to_anthropic_response(openai_resp, "claude-sonnet-4")
+
+    assert result["stop_reason"] == "tool_use"
+    assert len(result["content"]) == 2
+
+    # Text from choices[0]
+    assert result["content"][0]["type"] == "text"
+    assert "calculator" in result["content"][0]["text"]
+
+    # tool_use from choices[1]
+    assert result["content"][1]["type"] == "tool_use"
+    assert result["content"][1]["id"] == "tooluse_8bjtwWDo"
+    assert result["content"][1]["name"] == "calculator"
+    assert result["content"][1]["input"] == {"expr": "25*17"}
+
+    print("✅ Copilot split-choices format: PASSED")
+
+
+async def _test_streaming_copilot_split_choices():
+    """Copilot streaming: text in choices[0], tool_calls in choices[1]."""
+    openai_chunks = [
+        # Text in choices[0]
+        b'data: {"choices":[{"delta":{"role":"assistant","content":""},"index":0}]}\n',
+        b'data: {"choices":[{"delta":{"content":"I\'ll compute that."},"index":0}]}\n',
+        # Tool call in choices[1] (separate choice index!)
+        b'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tc_split","type":"function","function":{"name":"calculator","arguments":""}}]},"index":1}]}\n',
+        b'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"expr\\":\\"25*17\\"}"}}]},"index":1}]}\n',
+        # Finish from choices[1]
+        b'data: {"choices":[{"delta":{},"index":1,"finish_reason":"tool_calls"}]}\n',
+        b"data: [DONE]\n",
+    ]
+
+    async def mock_stream():
+        for chunk in openai_chunks:
+            yield chunk
+
+    events = []
+    async for event_bytes in openai_stream_to_anthropic_stream(
+        mock_stream(), "claude-sonnet-4"
+    ):
+        text = event_bytes.decode("utf-8").strip()
+        for line_pair in text.split("\n\n"):
+            lines = line_pair.strip().split("\n")
+            if len(lines) >= 2:
+                event_type = lines[0].replace("event: ", "")
+                data = json.loads(lines[1].replace("data: ", ""))
+                events.append((event_type, data))
+
+    # Should have both text and tool_use blocks
+    tool_starts = [
+        d for t, d in events
+        if t == "content_block_start" and d.get("content_block", {}).get("type") == "tool_use"
+    ]
+    assert len(tool_starts) == 1
+    assert tool_starts[0]["content_block"]["name"] == "calculator"
+
+    text_deltas = [
+        d for t, d in events
+        if t == "content_block_delta" and d.get("delta", {}).get("type") == "text_delta"
+    ]
+    assert len(text_deltas) >= 1
+
+    msg_delta = [d for t, d in events if t == "message_delta"][0]
+    assert msg_delta["delta"]["stop_reason"] == "tool_use"
+
+    print("✅ Streaming Copilot split-choices: PASSED")
+
+
+def test_streaming_copilot_split_choices():
+    asyncio.run(_test_streaming_copilot_split_choices())
+
+
+# ═══════════════════════════════════════════════════════════════════
 #  Run all tests
 # ═══════════════════════════════════════════════════════════════════
 
@@ -466,4 +579,6 @@ if __name__ == "__main__":
     test_response_tool_calls_only()
     test_streaming_with_tool_calls()
     test_multiple_tool_calls()
+    test_copilot_split_choices()
+    test_streaming_copilot_split_choices()
     print("\n🎉 All tools translation tests passed!")

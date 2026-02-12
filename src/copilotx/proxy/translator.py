@@ -381,11 +381,47 @@ def openai_to_anthropic_response(openai_resp: dict, model: str) -> dict:
     """Convert an OpenAI chat completion response to Anthropic /v1/messages format.
 
     Handles text content, tool_calls, and mixed responses.
+
+    IMPORTANT: Copilot backend may split text and tool_calls into separate choices:
+      choices[0] = {"message": {"content": "text..."}, "finish_reason": "tool_calls"}
+      choices[1] = {"message": {"tool_calls": [...]},   "finish_reason": "tool_calls"}
+    We must merge ALL choices to build the complete Anthropic response.
     """
-    choice = openai_resp.get("choices", [{}])[0]
-    message = choice.get("message", {})
-    content_text = message.get("content", "")
-    tool_calls = message.get("tool_calls")
+    choices = openai_resp.get("choices", [{}])
+
+    # Merge content and tool_calls from ALL choices
+    # (Copilot backend splits them into separate choices)
+    content_text = ""
+    all_tool_calls: list[dict] = []
+    finish_reason = "end_turn"
+
+    for choice in choices:
+        message = choice.get("message", {})
+
+        # Collect text content
+        text = message.get("content")
+        if text:
+            if content_text:
+                content_text += "\n" + text
+            else:
+                content_text = text
+
+        # Collect tool_calls
+        tc_list = message.get("tool_calls")
+        if tc_list:
+            all_tool_calls.extend(tc_list)
+
+        # Use the most specific finish_reason
+        fr = choice.get("finish_reason")
+        if fr == "tool_calls":
+            finish_reason = "tool_calls"
+        elif fr and finish_reason not in ("tool_calls",):
+            finish_reason = fr
+
+    logger.debug(
+        "OpenAI response: %d choices, text=%d chars, tool_calls=%d, finish=%s",
+        len(choices), len(content_text), len(all_tool_calls), finish_reason,
+    )
 
     # Build content blocks
     content_blocks: list[dict[str, Any]] = []
@@ -395,8 +431,8 @@ def openai_to_anthropic_response(openai_resp: dict, model: str) -> dict:
         content_blocks.append({"type": "text", "text": content_text})
 
     # Convert OpenAI tool_calls → Anthropic tool_use blocks
-    if tool_calls:
-        for tc in tool_calls:
+    if all_tool_calls:
+        for tc in all_tool_calls:
             func = tc.get("function", {})
             # Parse arguments JSON string → dict
             try:
@@ -416,7 +452,6 @@ def openai_to_anthropic_response(openai_resp: dict, model: str) -> dict:
         content_blocks.append({"type": "text", "text": ""})
 
     # Map finish_reason
-    finish_reason = choice.get("finish_reason", "end_turn")
     stop_reason_map = {
         "stop": "end_turn",
         "length": "max_tokens",
@@ -516,12 +551,29 @@ async def openai_stream_to_anthropic_stream(
             yield _sse_event("message_start", start_event)
             sent_start = True
 
-        # Extract delta
-        choice = chunk.get("choices", [{}])[0]
-        delta = choice.get("delta", {})
-        chunk_finish = choice.get("finish_reason")
-        content = delta.get("content")
-        tool_calls = delta.get("tool_calls")
+        # Extract delta from ALL choices (Copilot may split text/tool_calls
+        # into separate choices with different indices)
+        content = None
+        tool_calls = None
+        chunk_finish = None
+
+        for choice in chunk.get("choices", []):
+            delta = choice.get("delta", {})
+
+            # Collect text content from any choice
+            c = delta.get("content")
+            if c:
+                content = c
+
+            # Collect tool_calls from any choice
+            tc = delta.get("tool_calls")
+            if tc:
+                tool_calls = tc
+
+            # Track finish reason from any choice
+            fr = choice.get("finish_reason")
+            if fr:
+                chunk_finish = fr
 
         # Track finish reason
         if chunk_finish:
