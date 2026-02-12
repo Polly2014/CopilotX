@@ -41,6 +41,10 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # CORS preflight requests must pass through (handled by CORSMiddleware)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # No API key configured → fully open (local mode)
         if not COPILOTX_API_KEY:
             return await call_next(request)
