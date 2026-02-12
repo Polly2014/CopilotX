@@ -37,10 +37,11 @@ async def messages(request: Request):
 
     # Log the incoming request for debugging
     logger.info(
-        "Anthropic request: model=%s stream=%s max_tokens=%s keys=%s",
+        "Anthropic request: model=%s stream=%s max_tokens=%s tools=%d keys=%s",
         model,
         is_stream,
         body.get("max_tokens"),
+        len(body.get("tools", [])),
         list(body.keys()),
     )
 
