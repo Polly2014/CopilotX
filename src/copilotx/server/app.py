@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -13,6 +14,16 @@ from copilotx import __version__
 from copilotx.auth.token import TokenManager
 from copilotx.config import COPILOTX_API_KEY, LOCALHOST_ADDRS, PUBLIC_PATHS
 from copilotx.proxy.client import CopilotClient
+
+
+# ── CORS Configuration ──────────────────────────────────────────────
+
+CORS_ORIGINS = [
+    "https://polly.wang",
+    "https://www.polly.wang",
+    "http://127.0.0.1:1111",   # Zola dev server
+    "http://localhost:1111",  # Zola dev server (localhost)
+]
 
 
 # ── API Key Middleware ──────────────────────────────────────────────
@@ -106,6 +117,15 @@ def create_app(token_manager: TokenManager) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.token_manager = token_manager
+
+    # Add CORS middleware (must be before other middlewares)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Add API key middleware
     app.add_middleware(ApiKeyMiddleware)
