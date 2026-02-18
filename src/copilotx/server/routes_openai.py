@@ -6,11 +6,16 @@ the Copilot backend already speaks OpenAI format.
 
 from __future__ import annotations
 
+import json
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from copilotx.proxy.streaming import sse_response
 from copilotx.server.app import get_ready_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["OpenAI"])
 
@@ -31,12 +36,19 @@ async def chat_completions(request: Request):
             result = await client.chat_completions(body)
             return JSONResponse(content=result)
     except Exception as e:
-        return JSONResponse(
-            status_code=502,
-            content={
-                "error": {
-                    "message": f"Copilot backend error: {e}",
-                    "type": "upstream_error",
-                }
-            },
-        )
+        logger.error("Chat completions error: %s", e)
+        status_code = 502
+        error_content = {
+            "error": {
+                "message": f"Copilot backend error: {e}",
+                "type": "upstream_error",
+            }
+        }
+        if hasattr(e, 'response') and e.response is not None:
+            status_code = e.response.status_code
+            try:
+                # Try to parse and forward the backend's JSON error
+                error_content = json.loads(e.response.text)
+            except (json.JSONDecodeError, ValueError):
+                error_content["error"]["message"] = e.response.text[:500]
+        return JSONResponse(status_code=status_code, content=error_content)

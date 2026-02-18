@@ -344,7 +344,8 @@ client = OpenAI(
 | v1.0.0 | Local | OAuth, dual API, streaming, model discovery |
 | v2.0.0 | Remote | API key auth, remote deploy, Nginx/Caddy + systemd templates |
 | v2.1.0 | Codex | Responses API, vision support, dynamic API URL, stream ID sync |
-| **v2.2.0** | **Config** | **`copilotx config` command for client setup (Claude Code)** |
+| v2.2.0 | Config | `copilotx config` command for client setup (Claude Code) |
+| **v2.3.x** | **Polish** | **Error passthrough, stream error handling, test suite** |
 | v3.0.0 | Multi-User | Token pool, user database, OpenRouter mode |
 
 ## ⚠️ Disclaimer

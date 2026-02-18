@@ -6,6 +6,7 @@ the Copilot backend speaks), and translates responses back.
 
 from __future__ import annotations
 
+import json
 import logging
 
 from fastapi import APIRouter, Request
@@ -63,13 +64,23 @@ async def messages(request: Request):
             return JSONResponse(content=anthropic_resp)
     except Exception as e:
         logger.error("Copilot backend error: %s", e)
-        return JSONResponse(
-            status_code=502,
-            content={
-                "type": "error",
-                "error": {
-                    "type": "upstream_error",
-                    "message": f"Copilot backend error: {e}",
-                },
+        status_code = 502
+        error_content = {
+            "type": "error",
+            "error": {
+                "type": "upstream_error",
+                "message": f"Copilot backend error: {e}",
             },
-        )
+        }
+        if hasattr(e, 'response') and e.response is not None:
+            status_code = e.response.status_code
+            try:
+                # Try to parse backend JSON error and extract message
+                backend_error = json.loads(e.response.text)
+                if "error" in backend_error:
+                    error_content["error"]["message"] = backend_error["error"].get("message", str(backend_error["error"]))
+                else:
+                    error_content["error"]["message"] = e.response.text[:500]
+            except (json.JSONDecodeError, ValueError):
+                error_content["error"]["message"] = e.response.text[:500]
+        return JSONResponse(status_code=status_code, content=error_content)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any, AsyncIterator
 
@@ -17,6 +18,8 @@ from copilotx.config import (
     MODELS_CACHE_TTL,
     REQUEST_TIMEOUT,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CopilotClient:
@@ -87,7 +90,17 @@ class CopilotClient:
         assert self._client is not None
         url = f"{self._api_base}{COPILOT_CHAT_COMPLETIONS_PATH}"
         resp = await self._client.post(url, json=payload, headers=self._headers())
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            error_body = resp.text
+            logger.error(
+                "Chat completions error: status=%d body=%s",
+                resp.status_code, error_body[:1000],
+            )
+            raise httpx.HTTPStatusError(
+                f"HTTP {resp.status_code}: {error_body[:500]}",
+                request=resp.request,
+                response=resp,
+            )
         return resp.json()
 
     # ── Chat Completions (streaming) ────────────────────────────────
@@ -101,7 +114,17 @@ class CopilotClient:
         async with self._client.stream(
             "POST", url, json=payload, headers=self._headers(),
         ) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                error_body = await resp.aread()
+                logger.error(
+                    "Chat completions stream error: status=%d body=%s",
+                    resp.status_code, error_body[:1000],
+                )
+                raise httpx.HTTPStatusError(
+                    f"HTTP {resp.status_code}: {error_body.decode('utf-8', errors='replace')[:500]}",
+                    request=resp.request,
+                    response=resp,
+                )
             async for line in resp.aiter_lines():
                 if line:
                     yield (line + "\n").encode("utf-8")
@@ -124,10 +147,22 @@ class CopilotClient:
         # Strip service_tier — not supported by GitHub Copilot
         payload.pop("service_tier", None)
 
+        logger.debug("Responses API request: url=%s payload_keys=%s", url, list(payload.keys()))
+
         resp = await self._client.post(
             url, json=payload, headers=self._headers(extra_headers),
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            error_body = resp.text
+            logger.error(
+                "Responses API error: status=%d url=%s body=%s",
+                resp.status_code, url, error_body[:1000],
+            )
+            raise httpx.HTTPStatusError(
+                f"HTTP {resp.status_code}: {error_body[:500]}",
+                request=resp.request,
+                response=resp,
+            )
         return resp.json()
 
     # ── Responses API (streaming) ───────────────────────────────────
@@ -150,7 +185,17 @@ class CopilotClient:
         async with self._client.stream(
             "POST", url, json=payload, headers=self._headers(extra_headers),
         ) as resp:
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                error_body = await resp.aread()
+                logger.error(
+                    "Responses stream error: status=%d url=%s body=%s",
+                    resp.status_code, url, error_body[:1000],
+                )
+                raise httpx.HTTPStatusError(
+                    f"HTTP {resp.status_code}: {error_body.decode('utf-8', errors='replace')[:500]}",
+                    request=resp.request,
+                    response=resp,
+                )
             async for line in resp.aiter_lines():
                 if line:
                     yield (line + "\n").encode("utf-8")

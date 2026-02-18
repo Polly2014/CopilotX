@@ -24,3 +24,5 @@ Thumbs.db
 
 # Project specific
 *.log
+# Tests (contains API keys and sensitive config)
+tests/

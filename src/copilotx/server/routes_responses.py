@@ -57,15 +57,21 @@ async def responses(request: Request):
             return JSONResponse(content=result)
     except Exception as e:
         logger.error("Responses API error: %s", e)
-        return JSONResponse(
-            status_code=502,
-            content={
-                "error": {
-                    "message": f"Copilot backend error: {e}",
-                    "type": "upstream_error",
-                }
-            },
-        )
+        status_code = 502
+        error_content = {
+            "error": {
+                "message": f"Copilot backend error: {e}",
+                "type": "upstream_error",
+            }
+        }
+        if hasattr(e, 'response') and e.response is not None:
+            status_code = e.response.status_code
+            try:
+                # Try to parse and forward the backend's JSON error
+                error_content = json.loads(e.response.text)
+            except (json.JSONDecodeError, ValueError):
+                error_content["error"]["message"] = e.response.text[:500]
+        return JSONResponse(status_code=status_code, content=error_content)
 
 
 # ═══════════════════════════════════════════════════════════════════
