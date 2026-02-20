@@ -126,10 +126,11 @@ class CopilotClient:
                     response=resp,
                 )
             async for line in resp.aiter_lines():
-                if line:
-                    yield (line + "\n").encode("utf-8")
-            # Ensure final newline
-            yield b"\n"
+                # Yield ALL lines including empty ones — empty lines are
+                # SSE event delimiters and MUST be preserved for clients
+                # (e.g. OpenAI Python SDK) that rely on them to separate
+                # JSON chunks.
+                yield (line + "\n").encode("utf-8")
 
     # ── Responses API (non-streaming) ───────────────────────────────
 
