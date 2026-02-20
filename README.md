@@ -47,7 +47,7 @@ copilotx serve
 
 Output:
 ```
-🚀 CopilotX v2.3.2
+🚀 CopilotX v2.3.3
 ✅ Copilot Token valid (28m remaining, auto-refresh)
 � Local mode (localhost only)
 🎯 API: api.enterprise.githubcopilot.com (auto-detected)
